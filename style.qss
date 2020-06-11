@@ -1,0 +1,6 @@
+QPushButton[id=mainButton] {
+    background: #f0c0f0;
+}
+QPushButton[className="qt QPushButton specialButton"] {
+    background: #f0f000;
+}

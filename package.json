@@ -1,0 +1,16 @@
+{
+  "name": "qtreact",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "scripts": {
+      "build": "parcel build index.js",
+      "start": "parcel index.html"
+  },
+  "dependencies": {
+    "clsx": "^1.1.1",
+    "react": "^16.13.1",
+    "react-dom": "^16.13.1",
+    "uuid": "^8.1.0"
+  }
+}
