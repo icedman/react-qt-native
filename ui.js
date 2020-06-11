@@ -26,7 +26,7 @@ const updateUI = qt => {
   try {
     engine.updateUI(formatQt(qt));
   } catch (err) {}
-  console.log("update " + qt.id);
+  // console.log("update " + qt.id);
 };
 
 const events = {};

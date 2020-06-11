@@ -35,6 +35,7 @@ private:
     // QObject* createChildObject(QJsonObject props);
     QObject* applyProps(QObject* obj, QJsonObject props);
     QObject* factory(QString json);
+    QObject* unset(QString json);
     // QObject* childFactory(QJsonObject props);
 
 public slots:
@@ -42,12 +43,14 @@ public slots:
     void mountUI(QString dom);
     void unmountUI(QString dom);
     void showInspector(bool withHtml = false);
+    void exit();
 
 private Q_SLOTS:
     void setupEnvironment();
     void renderUI();
 
     void onChange(QString val);
+    void onSubmit();
     void onClick(bool checked);
     void onAction(QAction* action);
 };

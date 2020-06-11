@@ -59,15 +59,23 @@ const App = () => {
 
   const onExit = evt => {
     console.log(evt);
+    try {
+      engine.exit();
+    } catch (err) {}
+  };
+
+  const submitted = evt => {
+    console.log("submitted!");
   };
 
   return (
     <QWidget id="mainWindow">
-      <QMenuBar id="mainMenu">
-        <QMenu text="File">
+      <QMenuBar id="menuBar">
+        <QMenu text="&File">
           <QAction text="New"></QAction>
-          <QAction text="Save"></QAction>
-          <QAction text="Exit" onClick={onExit}></QAction>
+          <QAction text="&Open" shortcut="Ctrl+O"></QAction>
+          <QAction text="&Save"></QAction>
+          <QAction text="E&xit" onClick={onExit}></QAction>
         </QMenu>
         <QAction text="View"></QAction>
         <QAction text="Help"></QAction>
@@ -77,6 +85,7 @@ const App = () => {
       <QLineEdit
         text={state.text1}
         onChange={lineChanged}
+        onSubmit={submitted}
         style={{ color: "red" }}
       />
       <QLabel text="<b>Hello</b> world" />

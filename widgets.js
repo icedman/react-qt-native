@@ -1,7 +1,7 @@
 import React from "react";
 import clsx from "clsx";
 import { v4 as uuid } from "uuid";
-import { mountUI, unmoutUI, updateUI, events } from "./ui";
+import { mountUI, unmountUI, updateUI, events } from "./ui";
 
 const QWidget_ = props => {
   const [qt, setQt] = React.useState({
@@ -10,14 +10,20 @@ const QWidget_ = props => {
     parent: props.parent
   });
 
+    events[`onChange-${qt.id}`] = props.onChange || (evt => {});
+    events[`onClick-${qt.id}`] = props.onClick || (evt => {});
+    events[`onSubmit-${qt.id}`] = props.onSubmit || (evt => {});
+
   React.useEffect(() => {
     mountUI({ ...props, ...qt, className: className });
     events[`onChange-${qt.id}`] = props.onChange || (evt => {});
     events[`onClick-${qt.id}`] = props.onClick || (evt => {});
+    events[`onSubmit-${qt.id}`] = props.onSubmit || (evt => {});
     return () => {
-      umountUI(qt);
+      unmountUI(qt);
       delete events[`onChange-${qt.id}`];
       delete events[`onClick-${qt.id}`];
+      delete events[`onSubmit-${qt.id}`];
     };
   }, []);
 
@@ -46,7 +52,7 @@ const QWidget_ = props => {
   // preview on html only
   return (
     <div {...qt} className={className} style={props.style}>
-      {qt.widget} {children}
+      {qt.widget}::{qt.id} {children}
     </div>
   );
 };
@@ -112,7 +118,7 @@ const QMenu = props => {
 const QAction = props => {
   return (
     <QWidget {...props} widget="QAction" child={true}>
-      {props.children}
+      {props.text}
     </QWidget>
   );
 };

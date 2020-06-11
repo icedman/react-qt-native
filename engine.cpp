@@ -1,3 +1,4 @@
+#include <QApplication>
 #include <QAction>
 #include <QBoxLayout>
 #include <QDebug>
@@ -46,6 +47,7 @@ QObject* Engine::createObject(QJsonObject props)
 
     BEGIN_UI_DEF(QLineEdit)
     connect(uiObject, SIGNAL(textEdited(QString)), this, SLOT(onChange(QString)));
+    connect(uiObject, SIGNAL(returnPressed()), this, SLOT(onSubmit()));
     END_UI()
 
     BEGIN_UI_DEF(QHBoxLayout)
@@ -63,12 +65,10 @@ QObject* Engine::createObject(QJsonObject props)
     if (parentObj) {
         QMenuBar* bar = qobject_cast<QMenuBar*>(parentObj);
         if (bar) {
-            qDebug() << "bar found";
             bar->addMenu(uiObject);
         }
         QMenu* menu = qobject_cast<QMenu*>(parentObj);
         if (menu) {
-            qDebug() << "menu found";
             menu->addMenu(uiObject);
         }
     }
@@ -78,12 +78,10 @@ QObject* Engine::createObject(QJsonObject props)
     if (parentObj) {
         QMenuBar* bar = qobject_cast<QMenuBar*>(parentObj);
         if (bar) {
-            qDebug() << "bar found";
             bar->addAction(uiObject);
         }
         QMenu* menu = qobject_cast<QMenu*>(parentObj);
         if (menu) {
-            qDebug() << "menu found";
             menu->addAction(uiObject);
         }
     }
@@ -109,7 +107,7 @@ QObject* Engine::applyProps(QObject* obj, QJsonObject props)
             qss += " ";
             qss += props.value("style").toString();
             qss = qss.replace("\"", "");
-            qDebug() << qss;
+            // qDebug() << qss;
             w->setStyleSheet(qss);
             // w->style()->unpolish(w);
             // w->style()->polish(w);
@@ -136,6 +134,9 @@ QObject* Engine::applyProps(QObject* obj, QJsonObject props)
 
     BEGIN_UI_PROPS(QAction)
     uiObject->setText(props.value("text").toString());
+    if (props.contains("shortcut")) {
+        uiObject->setShortcut(QKeySequence(props.value("shortcut").toString()));
+    }
     END_UI()
 
     return obj;
@@ -157,48 +158,36 @@ QObject* Engine::factory(QString json)
 
     // check if already exists
     QString id = obj.value("id").toString();
-    // qDebug() << "with id " << id;
     if (registry.contains(id)) {
         return applyProps(registry.value(id), obj);
-        // qDebug() << "return existing object";
     }
 
-    // find parent
     QString widget = obj.value("widget").toString();
-    // qDebug() << "with widget " << widget;
-    // find a parent
     QString parentId = obj.value("parent").toString();
-    // qDebug() << "with parent id " << parentId;
     QObject* parentObj = registry.value(parentId);
-    // if (!parentObj) {
-    // qDebug() << "parent not found";
-    //     return NULL;
-    // }
 
     QWidget* parent = qobject_cast<QWidget*>(parentObj);
     QBoxLayout* parentLayout = qobject_cast<QBoxLayout*>(parentObj);
 
+    //----------
     // create
+    //----------
     QObject* qo = createObject(obj);
 
-    qDebug() << qo;
-    qDebug() << obj;
-
-    // children need not be parented
-    // this has been done at create
+    // children need not be added to a layout
+    // this has already been done at create
     if (obj.contains("child")) {
         qo->setProperty("id", id);
         registry.insert(id, qo);
         return applyProps(qo, obj);
-        // qDebug() << qo;
-        // return qo;
     }
 
+    //----------
+    // add to layout
+    //----------
     w = qobject_cast<QWidget*>(qo);
     l = qobject_cast<QBoxLayout*>(qo);
-
     if (!w && !l) {
-        qDebug() << "create fail " << widget;
         return NULL;
     }
 
@@ -208,10 +197,10 @@ QObject* Engine::factory(QString json)
             w->setParent(parent);
             if (parent->layout()) {
                 parent->layout()->addWidget(w);
-                qDebug() << "widget added to layout";
+                // qDebug() << "widget added to layout";
             } else {
                 parent->setLayout(new QVBoxLayout());
-                qDebug() << "parent has no layout";
+                // qDebug() << "parent has no layout";
             }
         }
 
@@ -222,12 +211,12 @@ QObject* Engine::factory(QString json)
 
         if (parentLayout && addToLayout) {
             parentLayout->addWidget(w);
-            qDebug() << widget << "added to layout";
+            // qDebug() << widget << "added to layout";
         }
 
-        qDebug() << "created new widget";
-        qDebug() << widget;
-        qDebug() << id;
+        // qDebug() << "created new widget";
+        // qDebug() << widget;
+        // qDebug() << id;
         w->setProperty("id", id);
         registry.insert(id, w);
         return applyProps(w, obj);
@@ -237,27 +226,50 @@ QObject* Engine::factory(QString json)
     if (parent) {
         if (!parent->layout()) {
             parent->setLayout(l);
-            qDebug() << "widget layout set";
         } else {
+            // qDebug() << "wrapped" << widget;
             QWidget* wrapper = new QWidget();
             wrapper->setLayout(l);
             parent->layout()->addWidget(wrapper);
             l->setProperty("wrapped", true);
-            qDebug() << "wrapped layout added";
         }
     }
 
     if (parentLayout) {
         parentLayout->addLayout(l);
-        qDebug() << "layout added to layout";
+        // qDebug() << "layout added to layout";
     }
 
-    qDebug() << "created new layout";
-    qDebug() << widget;
-    qDebug() << id;
+    // qDebug() << "created new layout";
+    // qDebug() << widget;
+    // qDebug() << id;
     l->setProperty("id", id);
     registry.insert(id, l);
     return applyProps(l, obj);
+}
+
+QObject* Engine::unset(QString json)
+{
+    QByteArray bytes;
+    bytes.append(json);
+    QJsonDocument doc = QJsonDocument::fromJson(bytes);
+    QJsonObject obj = doc.object();
+
+    QString id = obj.value("id").toString();
+    if (registry.contains(id)) {
+        QObject *qo = registry.value(id);
+
+        QWidget *w = qobject_cast<QWidget*>(qo);
+        if (w) {
+            w->hide();
+            delete w;
+            // w->deleteLater();
+        }
+
+        registry.remove(id);
+        return qo;
+    }
+    return NULL;
 }
 
 Engine::Engine(QWidget* parent)
@@ -387,7 +399,7 @@ void Engine::renderUI()
 
     // unmounts
     for (auto n : unmounts) {
-        // remove
+        unset(n);
     }
     unmounts.clear();
 }
@@ -397,6 +409,16 @@ void Engine::onChange(QString val)
     QObject* obj = sender();
     QString id = obj->property("id").toString();
     QString script = "$events[\"onChange-" + id + "\"]({ target: { src: \"" + id + "\", value: \"" + val + "\" }})";
+    qDebug() << script;
+    runScript(script);
+}
+
+void Engine::onSubmit()
+{
+    QObject* obj = sender();
+    QString id = obj->property("id").toString();
+    QString val = ""; //
+    QString script = "$events[\"onSubmit-" + id + "\"]({ target: { src: \"" + id + "\", value: \"" + val + "\" }})";
     qDebug() << script;
     runScript(script);
 }
@@ -414,7 +436,8 @@ void Engine::onAction(QAction* action)
 {
     // QObject* obj = sender();
     QString id = action->property("id").toString();
-    QString script = "$events[\"onClick-" + id + "\"]({ target: { src: \"" + id + "\", value: " + (true ? "true" : "false") + " }})";
+    bool checked = false; //
+    QString script = "$events[\"onClick-" + id + "\"]({ target: { src: \"" + id + "\", value: " + (checked ? "true" : "false") + " }})";
     qDebug() << script;
     runScript(script);
 }
@@ -429,4 +452,9 @@ void Engine::showInspector(bool withHtml)
 
     resize(1200, 800);
     show();
+}
+
+void Engine::exit()
+{
+    qobject_cast<QApplication*>(QApplication::instance())->exit();
 }

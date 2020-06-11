@@ -5,7 +5,9 @@
   "license": "MIT",
   "scripts": {
       "build": "parcel build index.js",
-      "start": "parcel index.html"
+      "start": "parcel index.html",
+      "build-todo": "parcel build todo.js",
+      "start-todo": "parcel todo.html"
   },
   "dependencies": {
     "clsx": "^1.1.1",
