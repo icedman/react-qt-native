@@ -30,6 +30,10 @@ const style =
 } \
 ";
 
+const context = React.createContext({
+  todos: []
+});
+
 const App = () => {
   const [state, setState] = React.useState({
     todos: []

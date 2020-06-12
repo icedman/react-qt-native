@@ -165,31 +165,37 @@ QObject* Engine::factory(QString json)
 
     QString widget = obj.value("widget").toString();
     QString parentId = obj.value("parent").toString();
+
+    //----------
+    // parent
+    //----------
     QObject* parentObj = registry.value(parentId);
-
     qDebug() << "parent" << parentId;
-
     QWidget* parent = qobject_cast<QWidget*>(parentObj);
     QBoxLayout* parentLayout = qobject_cast<QBoxLayout*>(parentObj);
 
     if (!parentId.isEmpty() && !parent && !parentLayout) {
-        // defer...
-        qDebug() << "---------------------";
-        qDebug() << "no parent found for" << widget;
-        for(auto k : registry.keys()) {
-            qDebug() << k;
-            qDebug() << registry.value(k);
-        }
+        // defer... (shouldn't have happened)
+        // qDebug() << "---------------------";
+        // qDebug() << "no parent found for" << widget;
+        // for(auto k : registry.keys()) {
+        //     qDebug() << k;
+        //     qDebug() << registry.value(k);
+        // }
         return NULL;
     }
 
     //----------
-    // create
+    // create widget
     //----------
     QObject* qo = createObject(obj);
+    w = qobject_cast<QWidget*>(qo);
+    l = qobject_cast<QBoxLayout*>(qo);
 
-    // children need not be added to a layout
+    //----------
+    // children like QMenu & QActions need not be added to a layout
     // this has already been done at create
+    //----------
     if (obj.contains("child")) {
         qo->setProperty("id", id);
         registry.insert(id, qo);
@@ -200,8 +206,6 @@ QObject* Engine::factory(QString json)
     //----------
     // add to layout
     //----------
-    w = qobject_cast<QWidget*>(qo);
-    l = qobject_cast<QBoxLayout*>(qo);
     if (!w && !l) {
         qDebug() << "create fail";
         return NULL;
@@ -237,30 +241,35 @@ QObject* Engine::factory(QString json)
     }
 
     // layout
-    if (parent) {
-        if (!parent->layout()) {
-            parent->setLayout(l);
-        } else {
-            // qDebug() << "wrapped" << widget;
-            QWidget* wrapper = new QWidget();
-            wrapper->setLayout(l);
-            parent->layout()->addWidget(wrapper);
-            l->setParent(wrapper);
-            l->setProperty("wrapped", true);
+    if (l) {
+        if (parent) {
+            if (!parent->layout()) {
+                parent->setLayout(l);
+                l->setParent(parent);
+            } else {
+                // qDebug() << "wrapped" << widget;
+                QWidget* wrapper = new QWidget(parent);
+                wrapper->setLayout(l);
+                parent->layout()->addWidget(wrapper);
+                l->setParent(wrapper);
+                l->setProperty("wrapped", true);
+            }
         }
+
+        if (parentLayout) {
+            parentLayout->addLayout(l);
+            qDebug() << "layout added to layout";
+        }
+
+        qDebug() << "created new layout";
+        qDebug() << widget;
+        qDebug() << id;
+        l->setProperty("id", id);
+        registry.insert(id, l);
+        return applyProps(l, obj);
     }
 
-    if (parentLayout) {
-        parentLayout->addLayout(l);
-        qDebug() << "layout added to layout";
-    }
-
-    qDebug() << "created new layout";
-    qDebug() << widget;
-    qDebug() << id;
-    l->setProperty("id", id);
-    registry.insert(id, l);
-    return applyProps(l, obj);
+    return NULL;
 }
 
 QObject* Engine::unset(QString json)

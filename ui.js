@@ -27,13 +27,14 @@ const unmountUI = qt => {
 };
 
 const updateUI = qt => {
+  const _events = [ 'onChange', 'onClick', 'onSubmit' ];
+
   try {
 
-  events[qt.id] = events[qt.id] || {}
-  events[qt.id].onChange = qt.onChange || (evt => {});
-  events[qt.id].onClick = qt.onClick || (evt => {});
-  events[qt.id].onSubmit = qt.onSubmit || (evt => {});
-
+  events[qt.id] = events[qt.id] || {};
+  _events.forEach(e => {
+    events[qt.id][e] = qt[e] || (evt => {});
+  })
     engine.updateUI(formatQt(qt));
   } catch (err) {}
   // console.log("update " + qt.id);
