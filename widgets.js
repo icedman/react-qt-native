@@ -10,25 +10,17 @@ const QWidget_ = props => {
     parent: props.parent
   });
 
-    events[`onChange-${qt.id}`] = props.onChange || (evt => {});
-    events[`onClick-${qt.id}`] = props.onClick || (evt => {});
-    events[`onSubmit-${qt.id}`] = props.onSubmit || (evt => {});
+  let uiInfo = { ...props, ...qt, className: className };
 
   React.useEffect(() => {
-    mountUI({ ...props, ...qt, className: className });
-    events[`onChange-${qt.id}`] = props.onChange || (evt => {});
-    events[`onClick-${qt.id}`] = props.onClick || (evt => {});
-    events[`onSubmit-${qt.id}`] = props.onSubmit || (evt => {});
+    mountUI(uiInfo);
     return () => {
-      unmountUI(qt);
-      delete events[`onChange-${qt.id}`];
-      delete events[`onClick-${qt.id}`];
-      delete events[`onSubmit-${qt.id}`];
+      unmountUI(uiInfo);
     };
   }, []);
 
   let className = clsx("qt", props.widget, props.className);
-  updateUI({ ...props, ...qt, className: className });
+  updateUI(uiInfo);
 
   let children = [];
   if (typeof props.children === "object") {
@@ -41,7 +33,7 @@ const QWidget_ = props => {
         children.push(
           React.cloneElement(
             c,
-            { ...c.props, parent: qt.id, key: `${qt.id}-child-${idx}` },
+            { ...c.props, parent: qt.id, key: `${qt.id}-${idx}` },
             c.props.children
           )
         );
@@ -57,7 +49,8 @@ const QWidget_ = props => {
   );
 };
 
-const QWidget = React.memo(QWidget_);
+const QWidget = QWidget_;
+// const QWidget = React.memo(QWidget_);
 
 const QPushButton = props => {
   return (

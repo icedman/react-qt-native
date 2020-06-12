@@ -22,11 +22,13 @@ int main(int argc, char** argv)
     QCommandLineOption htmlOption(QStringList() << "m" << "html", "inspect with html view");
     QCommandLineOption styleOption(QStringList() << "s" << "style", "set custom qt stylesheet", "stylePath");
     QCommandLineOption entryOption(QStringList() << "e" << "entry", "set entry script", "entryPath");
+    QCommandLineOption devModeOption(QStringList() << "d" << "develop", "run in development mode");
     parser.addHelpOption();
     parser.addOption(inspectOption);
     parser.addOption(htmlOption);
     parser.addOption(styleOption);
     parser.addOption(entryOption);
+    parser.addOption(devModeOption);
     parser.process(app);
 
     if (parser.isSet(styleOption)) {
@@ -51,9 +53,14 @@ int main(int argc, char** argv)
     w.registerWidget("mainWindow", main, true);
     w.registerWidget("menuBar", mw->menuBar(), true);
     w.registerWidget("statusBar", mw->statusBar(), true);
-    w.loadHtmlFile(htmlPath);
-    w.runScriptFile("./dist/" + entryPath);
-    
+
+    if (parser.isSet(devModeOption)) {
+        w.runDevelopment("http://localhost:1234");
+    } else {
+        w.loadHtmlFile(htmlPath);
+        w.runScriptFile("./dist/" + entryPath);
+    }
+
     if (parser.isSet(inspectOption)) {
         w.showInspector(parser.isSet(htmlOption));
     }

@@ -18,6 +18,8 @@ public:
     QWebFrame* frame;
     QWebInspector* inspector;
 
+    void runDevelopment(QString url);
+
     QVariant runScript(QString script);
     QVariant runScriptFile(QString path);
     bool loadHtml(QString content);
@@ -37,6 +39,10 @@ private:
     QObject* factory(QString json);
     QObject* unset(QString json);
     // QObject* childFactory(QJsonObject props);
+
+    QString scriptPath;
+    QString htmlPath;
+    bool developmentMode;
 
 public slots:
     void updateUI(QString dom);

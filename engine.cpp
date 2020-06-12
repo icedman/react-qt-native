@@ -150,6 +150,7 @@ QObject* Engine::factory(QString json)
     QJsonObject obj = doc.object();
 
     if (!obj.contains("id")) {
+        qDebug() << "id not found";
         return NULL;
     }
 
@@ -166,8 +167,21 @@ QObject* Engine::factory(QString json)
     QString parentId = obj.value("parent").toString();
     QObject* parentObj = registry.value(parentId);
 
+    qDebug() << "parent" << parentId;
+
     QWidget* parent = qobject_cast<QWidget*>(parentObj);
     QBoxLayout* parentLayout = qobject_cast<QBoxLayout*>(parentObj);
+
+    if (!parentId.isEmpty() && !parent && !parentLayout) {
+        // defer...
+        qDebug() << "---------------------";
+        qDebug() << "no parent found for" << widget;
+        for(auto k : registry.keys()) {
+            qDebug() << k;
+            qDebug() << registry.value(k);
+        }
+        return NULL;
+    }
 
     //----------
     // create
@@ -179,6 +193,7 @@ QObject* Engine::factory(QString json)
     if (obj.contains("child")) {
         qo->setProperty("id", id);
         registry.insert(id, qo);
+        qDebug() << widget << "created" << id;
         return applyProps(qo, obj);
     }
 
@@ -188,35 +203,34 @@ QObject* Engine::factory(QString json)
     w = qobject_cast<QWidget*>(qo);
     l = qobject_cast<QBoxLayout*>(qo);
     if (!w && !l) {
+        qDebug() << "create fail";
         return NULL;
     }
+
 
     // widget
     if (w) {
         if (parent) {
+            qDebug() << "adding to parent";
             w->setParent(parent);
             if (parent->layout()) {
                 parent->layout()->addWidget(w);
-                // qDebug() << "widget added to layout";
+                qDebug() << "widget added to layout";
             } else {
-                parent->setLayout(new QVBoxLayout());
-                // qDebug() << "parent has no layout";
+                // parent->setLayout(new QVBoxLayout());
+                qDebug() << "parent has no layout";
             }
         }
 
-        bool addToLayout = true;
-        if (widget == "QMenuBar") {
-            addToLayout = false;
-        }
-
-        if (parentLayout && addToLayout) {
+        if (parentLayout) {
+            qDebug() << "adding to parent layout";
             parentLayout->addWidget(w);
-            // qDebug() << widget << "added to layout";
+            qDebug() << widget << "added to layout";
         }
 
-        // qDebug() << "created new widget";
-        // qDebug() << widget;
-        // qDebug() << id;
+        qDebug() << "created new widget";
+        qDebug() << widget;
+        qDebug() << id;
         w->setProperty("id", id);
         registry.insert(id, w);
         return applyProps(w, obj);
@@ -231,18 +245,19 @@ QObject* Engine::factory(QString json)
             QWidget* wrapper = new QWidget();
             wrapper->setLayout(l);
             parent->layout()->addWidget(wrapper);
+            l->setParent(wrapper);
             l->setProperty("wrapped", true);
         }
     }
 
     if (parentLayout) {
         parentLayout->addLayout(l);
-        // qDebug() << "layout added to layout";
+        qDebug() << "layout added to layout";
     }
 
-    // qDebug() << "created new layout";
-    // qDebug() << widget;
-    // qDebug() << id;
+    qDebug() << "created new layout";
+    qDebug() << widget;
+    qDebug() << id;
     l->setProperty("id", id);
     registry.insert(id, l);
     return applyProps(l, obj);
@@ -255,15 +270,32 @@ QObject* Engine::unset(QString json)
     QJsonDocument doc = QJsonDocument::fromJson(bytes);
     QJsonObject obj = doc.object();
 
+    qDebug() << "unmount..." << obj;
+
     QString id = obj.value("id").toString();
     if (registry.contains(id)) {
         QObject *qo = registry.value(id);
+        bool persist = qo->property("persistent").toBool();
+        bool wrapped = qo->property("wrapped").toBool();
+        if (persist) {
+            return NULL;
+        }
 
         QWidget *w = qobject_cast<QWidget*>(qo);
         if (w) {
             w->hide();
-            delete w;
-            // w->deleteLater();
+            w->deleteLater();
+        }
+
+        QBoxLayout *l = qobject_cast<QBoxLayout*>(qo);
+        if (l) {
+            if (wrapped) {
+                w = qobject_cast<QWidget*>(l->parent());
+                if (w) {
+                    w->deleteLater();
+                }
+            }
+            l->deleteLater();
         }
 
         registry.remove(id);
@@ -286,13 +318,12 @@ Engine::Engine(QWidget* parent)
     view = new QWebView(this);
     frame = view->page()->mainFrame();
 
-    // connect(frame, SIGNAL(javaScriptWindowObjectCleared()), this, SLOT(setupEnvironment()));
+    connect(frame, SIGNAL(javaScriptWindowObjectCleared()), this, SLOT(setupEnvironment()));
+    // setupEnvironment();
 
     inspector = new QWebInspector();
     inspector->setPage(view->page());
     inspector->setVisible(true);
-
-    setupEnvironment();
 
     box->addWidget(splitter);
     box->setMargin(0);
@@ -314,6 +345,7 @@ bool Engine::loadHtml(QString content)
 
 bool Engine::loadHtmlFile(QString path)
 {
+    htmlPath = path;
     QFile index(path);
     if (index.open(QIODevice::ReadOnly)) {
         QString content = index.readAll();
@@ -336,6 +368,19 @@ bool Engine::registerWidget(QString id, QWidget* widget, bool peristent)
 
 void Engine::setupEnvironment()
 {
+    qDebug() << "setupEnvironment";
+
+    // hot reload .. clear all
+    if (developmentMode) {
+        for(auto qo : registry) {
+            bool persist = qo->property("persistent").toBool();
+            if (!persist) {
+                QString json = "{\"id\": \"" + qo->property("id").toString() + "\"}";
+                qDebug() << json;
+                unmountUI(json);
+            }
+        }
+    }
     frame->addToJavaScriptWindowObject("engine", this);
 }
 
@@ -346,6 +391,7 @@ QVariant Engine::runScript(QString script)
 
 QVariant Engine::runScriptFile(QString path)
 {
+    scriptPath = path;
     QFile file(path);
     if (file.open(QIODevice::ReadOnly)) {
         return runScript(file.readAll());
@@ -356,13 +402,13 @@ QVariant Engine::runScriptFile(QString path)
 void Engine::mountUI(QString dom)
 {
     mounts.push_front(dom);
-    // qDebug() << dom;
+    qDebug() << dom;
 }
 
 void Engine::unmountUI(QString dom)
 {
     unmounts.push_back(dom);
-    // qDebug() << "unmount";
+    qDebug() << "unmount";
 }
 
 void Engine::updateUI(QString dom)
@@ -377,16 +423,20 @@ void Engine::renderUI()
         return;
     }
 
+    // qDebug() << "render";
+
     QStringList retry;
     // mounts
+    /*
     for (auto m : mounts) {
         if (!factory(m)) {
             retry.push_back(m);
         }
     }
     mounts.clear();
-    mounts << retry;
+    // mounts << retry;
     retry.clear();
+    */
 
     // updates
     for (auto u : updates) {
@@ -395,7 +445,8 @@ void Engine::renderUI()
         }
     }
     updates.clear();
-    updates << retry;
+    // updates << retry;
+    retry.clear();
 
     // unmounts
     for (auto n : unmounts) {
@@ -408,7 +459,7 @@ void Engine::onChange(QString val)
 {
     QObject* obj = sender();
     QString id = obj->property("id").toString();
-    QString script = "$events[\"onChange-" + id + "\"]({ target: { src: \"" + id + "\", value: \"" + val + "\" }})";
+    QString script = "$events[\"" + id + "\"].onChange({ target: { src: \"" + id + "\", value: \"" + val + "\" }})";
     qDebug() << script;
     runScript(script);
 }
@@ -418,7 +469,7 @@ void Engine::onSubmit()
     QObject* obj = sender();
     QString id = obj->property("id").toString();
     QString val = ""; //
-    QString script = "$events[\"onSubmit-" + id + "\"]({ target: { src: \"" + id + "\", value: \"" + val + "\" }})";
+    QString script = "$events[\"" + id + "\"].onSubmit({ target: { src: \"" + id + "\", value: \"" + val + "\" }})";
     qDebug() << script;
     runScript(script);
 }
@@ -427,7 +478,7 @@ void Engine::onClick(bool checked)
 {
     QObject* obj = sender();
     QString id = obj->property("id").toString();
-    QString script = "$events[\"onClick-" + id + "\"]({ target: { src: \"" + id + "\", value: " + (checked ? "true" : "false") + " }})";
+    QString script = "$events[\"" + id + "\"].onClick({ target: { src: \"" + id + "\", value: " + (checked ? "true" : "false") + " }})";
     qDebug() << script;
     runScript(script);
 }
@@ -437,7 +488,7 @@ void Engine::onAction(QAction* action)
     // QObject* obj = sender();
     QString id = action->property("id").toString();
     bool checked = false; //
-    QString script = "$events[\"onClick-" + id + "\"]({ target: { src: \"" + id + "\", value: " + (checked ? "true" : "false") + " }})";
+    QString script = "$events[\"" + id + "\"].onClick({ target: { src: \"" + id + "\", value: " + (checked ? "true" : "false") + " }})";
     qDebug() << script;
     runScript(script);
 }
@@ -457,4 +508,10 @@ void Engine::showInspector(bool withHtml)
 void Engine::exit()
 {
     qobject_cast<QApplication*>(QApplication::instance())->exit();
+}
+
+void Engine::runDevelopment(QString url)
+{
+    view->setUrl(QUrl(url));
+    developmentMode = true;
 }

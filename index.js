@@ -21,9 +21,11 @@ const style =
 } \
 .QHBoxLayout { \
     display: flex; \
+    flex-direction: row; \
 } \
 .QVBoxLayout { \
     display: flex; \
+    flex-direction: column; \
 } \
 ";
 
@@ -70,6 +72,7 @@ const App = () => {
 
   return (
     <QWidget id="mainWindow">
+      <style dangerouslySetInnerHTML={{ __html: style }}></style>
       <QMenuBar id="menuBar">
         <QMenu text="&File">
           <QAction text="New"></QAction>
@@ -81,14 +84,13 @@ const App = () => {
         <QAction text="Help"></QAction>
       </QMenuBar>
       <h1>Hello, world!</h1>
-      <style dangerouslySetInnerHTML={{ __html: style }}></style>
       <QLineEdit
         text={state.text1}
         onChange={lineChanged}
         onSubmit={submitted}
         style={{ color: "red" }}
       />
-      <QLabel text="<b>Hello</b> world" />
+      <QLabel text="<b>Hello</b> <i>world</i>" />
       <QHBoxLayout>
         <QPushButton id="mainButton" text={state.text2} onClick={buttonClicked}>
           {state.text2}
@@ -103,6 +105,7 @@ const App = () => {
           className="specialButton"
         >
           <QHBoxLayout>
+            <QLabel text={state.text1} />
             <QLabel text={state.text1} />
           </QHBoxLayout>
         </QPushButton>

@@ -22,9 +22,11 @@ const style =
 } \
 .QHBoxLayout { \
     display: flex; \
+    flex-direction: row; \
 } \
 .QVBoxLayout { \
     display: flex; \
+    flex-direction: column; \
 } \
 ";
 
@@ -70,12 +72,14 @@ const App = () => {
   return (
     <QWidget id="mainWindow">
     <style dangerouslySetInnerHTML={{ __html: style }}></style>
-    <QLabel text="<h1>Todo</h1>"/>
+    <QLabel text="<h1>Todoszz App</h1>"/>
     <QLineEdit text={state.newTodo}
       onChange={(evt)=>{ setState({...state, newTodo: evt.target.value }) }}
       onSubmit={(evt)=>{ addTodo(evt); console.log(123); }}/>
     <QPushButton text="Add Todo" onClick={addTodo}/>
+    <QVBoxLayout key={state.todos.length}>
     {todosRendered}
+    </QVBoxLayout>
     <button onClick={addTodo}>Add Todo</button>
     <code>{JSON.stringify(state.todos,null,4)}</code>
     </QWidget>
